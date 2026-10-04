@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Video Review & Revision Portal</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- html2pdf for generating clean downloadable PDF directly from browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    @media print {
+      .no-print { display: none !important; }
+      body { background: white; }
+      .shadow-custom { box-shadow: none !important; }
+    }
+    .tooltip-bubble {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .has-tooltip:hover .tooltip-bubble {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen py-8 px-4 sm:px-6 lg:px-8 font-sans">
+
+  <div class="max-w-4xl mx-auto">
+    <!-- Top Action Bar (Download & Instructions) -->
+    <div class="no-print bg-indigo-900 text-white rounded-xl p-4 sm:p-5 mb-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg">
+      <div>
+        <h2 class="font-bold text-base sm:text-lg">Need a copy or want to submit directly?</h2>
+        <p class="text-xs sm:text-sm text-indigo-200">Fill in the details below. You can save a PDF copy or submit directly to our production team.</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <button type="button" onclick="exportToPDF()" class="bg-indigo-700 hover:bg-indigo-600 text-white text-xs sm:text-sm font-semibold px-4 py-2.5 rounded-lg transition-all flex items-center gap-2 border border-indigo-500">
+          <span>📄</span> Download as PDF
+        </button>
+      </div>
+    </div>
+
+    <!-- Main Printable & Submittable Container -->
+    <form id="feedbackForm" onsubmit="handleSubmit(event)" class="bg-white rounded-2xl shadow-xl border border-slate-200 p-6 sm:p-10 space-y-8">
+      
+      <!-- Header -->
+      <div class="border-b border-slate-200 pb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="inline-block bg-blue-100 text-blue-800 text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-md mb-2">Client Review Portal</span>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">AI Video Revision & Feedback</h1>
+          <p class="text-slate-500 text-sm mt-1">Tell us exactly what to improve scene-by-scene. No technical jargon required!</p>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-right">
+          <label class="block text-xs font-bold text-slate-400 uppercase">Reviewing Cut</label>
+          <input type="text" name="cutVersion" value="Rough Cut (v1.0)" class="text-sm font-semibold text-slate-700 bg-transparent text-right focus:outline-none border-b border-transparent hover:border-slate-300 focus:border-blue-500" />
+        </div>
+      </div>
+
+      <!-- Quick Metadata Grid -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm">
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Your Name / Organization</label>
+          <input required type="text" name="clientName" placeholder="e.g. Acme Corp / Sarah Jenkins" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Your Contact Email</label>
+          <input required type="email" name="clientEmail" placeholder="client@company.com" class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Video Link (Drive/Vimeo/Loom)</label>
+          <input type="url" name="videoLink" placeholder="https://..." class="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+        </div>
+      </div>
+
+      <!-- Friendly Jargon Buster / Guide -->
+      <div class="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-xl">
+        <div class="flex items-start">
+          <div class="text-lg mr-2.5">💡</div>
+          <div class="text-xs sm:text-sm text-amber-900 leading-relaxed">
+            <strong>Unsure what to call an issue?</strong> Look at the dropdowns below:
+            <span class="inline-block bg-white border border-amber-200 rounded px-1.5 py-0.5 font-semibold text-amber-800 mx-1">Lip-Sync</span> = mouth movement doesn't match sound;
+            <span class="inline-block bg-white border border-amber-200 rounded px-1.5 py-0.5 font-semibold text-amber-800 mx-1">Glitch / Morphing</span> = hands or background distort;
+            <span class="inline-block bg-white border border-amber-200 rounded px-1.5 py-0.5 font-semibold text-amber-800 mx-1">Pacing</span> = scene goes too fast or too slow.
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Timestamped Feedback Section -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Minute-by-Minute Corrections</h2>
+            <p class="text-xs text-slate-500">Add the exact time code and let us know what to tweak.</p>
+          </div>
+          <button type="button" onclick="addFeedbackRow()" class="no-print bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200 text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg transition flex items-center gap-1.5">
+            <span class="text-base leading-none font-bold">+</span> Add Timestamp
+          </button>
+        </div>
+
+        <!-- Feedback Rows Container -->
+        <div id="feedbackRows" class="space-y-3">
+          <!-- Initial Row 1 -->
+          <div class="feedback-row border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-sm">
+            <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+              
+              <!-- Timestamp input -->
+              <div class="sm:col-span-3">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">Time (Minute : Second)</label>
+                <div class="flex items-center gap-1">
+                  <input type="text" name="timestamp[]" placeholder="00:15 - 00:22" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none" required />
+                </div>
+              </div>
+
+              <!-- Friendly Category -->
+              <div class="sm:col-span-4">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">What element needs change?</label>
+                <select name="category[]" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                  <option value="Voice & Sound">🎙️ Voiceover / Audio volume</option>
+                  <option value="Lip-Sync Matching">👄 Mouth moving out of sync</option>
+                  <option value="Visual Artifacts / Glitches">👾 AI Glitch / Weird hand or face morphing</option>
+                  <option value="Text & Subtitles">✍️ Spelling / Text / Logo font</option>
+                  <option value="Pacing & Timing">⏱️ Too fast / Too slow / Cut earlier</option>
+                  <option value="Scene Replacement">🎬 Replace visual scene completely</option>
+                  <option value="Other">✨ Other question / note</option>
+                </select>
+              </div>
+
+              <!-- Urgency -->
+              <div class="sm:col-span-4">
+                <label class="block text-xs font-semibold text-slate-600 mb-1">How critical is this?</label>
+                <select name="priority[]" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                  <option value="Must Fix (Blocker)">🔴 Must Fix (Will not approve cut)</option>
+                  <option value="Preferred" selected>🟡 Preferred (Looks better if changed)</option>
+                  <option value="Nice to have">🟢 Optional (Only if easy to tweak)</option>
+                </select>
+              </div>
+
+              <!-- Delete Row Action -->
+              <div class="sm:col-span-1 flex justify-end no-print pt-4">
+                <button type="button" onclick="deleteRow(this)" title="Delete entry" class="text-slate-400 hover:text-red-500 text-lg transition p-1">
+                  ✕
+                </button>
+              </div>
+
+              <!-- Note area spanning full row -->
+              <div class="sm:col-span-12 mt-1">
+                <textarea name="description[]" rows="2" placeholder="Describe the change clearly (e.g., 'At 15 seconds, the speaker's mouth keeps moving after the voice finishes sentence' or 'Change subtitle text to: New Horizons')." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none" required></textarea>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <button type="button" onclick="addFeedbackRow()" class="no-print mt-3 w-full py-2.5 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 hover:text-blue-600 hover:border-blue-400 font-semibold text-xs sm:text-sm transition flex items-center justify-center gap-2">
+          <span>+ Add Another Scene Timestamp</span>
+        </button>
+      </div>
+
+      <!-- Overall Satisfaction & General Feedback -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-slate-200">
+        <div>
+          <label class="block text-sm font-bold text-slate-900 mb-1">Overall Tone & Vibe Feeling</label>
+          <p class="text-xs text-slate-500 mb-2">How close does this cut feel to your creative vision?</p>
+          <div class="space-y-2 text-xs sm:text-sm">
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <input type="radio" name="toneSatisfaction" value="Nailed it" class="text-blue-600 focus:ring-blue-500" checked />
+              <span>🤩 <strong>Nailed it!</strong> Just minor detail fixes needed.</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <input type="radio" name="toneSatisfaction" value="Close, needs fine-tuning" class="text-blue-600 focus:ring-blue-500" />
+              <span>🙂 <strong>Close</strong>, but needs pacing or visual fine-tuning.</span>
+            </label>
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <input type="radio" name="toneSatisfaction" value="Off-track, rethink needed" class="text-blue-600 focus:ring-blue-500" />
+              <span>🤔 <strong>Off-track</strong>, let's jump on a quick alignment call.</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-sm font-bold text-slate-900 mb-1">General High-Level Feedback</label>
+          <p class="text-xs text-slate-500 mb-2">Any overarching instructions for the whole video?</p>
+          <textarea name="generalNotes" rows="3" placeholder="e.g., 'Music is great! The intro scene is super strong, let's keep that style consistent throughout...'" class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Revision Status Sign-Off -->
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-5">
+        <label class="block text-sm font-bold text-slate-900 mb-2">Next Step Recommendation</label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs sm:text-sm">
+          <label class="p-3 border border-slate-200 bg-white rounded-lg flex items-start gap-2.5 cursor-pointer hover:border-blue-400">
+            <input type="radio" name="reviewDecision" value="Approved - Render Final Master" class="mt-0.5 text-blue-600 focus:ring-blue-500" />
+            <div>
+              <strong class="block text-slate-900">Approved as Final</strong>
+              <span class="text-slate-500 text-xs">Ready for final 4K render and handover.</span>
+            </div>
+          </label>
+          <label class="p-3 border border-slate-200 bg-white rounded-lg flex items-start gap-2.5 cursor-pointer hover:border-blue-400">
+            <input type="radio" name="reviewDecision" value="Approved with Minor Changes" class="mt-0.5 text-blue-600 focus:ring-blue-500" checked />
+            <div>
+              <strong class="block text-slate-900">Revise Listed Timestamps</strong>
+              <span class="text-slate-500 text-xs">Proceed with edits and deliver next cut.</span>
+            </div>
+          </label>
+          <label class="p-3 border border-slate-200 bg-white rounded-lg flex items-start gap-2.5 cursor-pointer hover:border-blue-400">
+            <input type="radio" name="reviewDecision" value="Major Overhaul Needed" class="mt-0.5 text-blue-600 focus:ring-blue-500" />
+            <div>
+              <strong class="block text-slate-900">Major Re-generation</strong>
+              <span class="text-slate-500 text-xs">Requires substantial script/avatar reruns.</span>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- Submit & Status Bar -->
+      <div class="no-print pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <p class="text-xs text-slate-500 text-center sm:text-left">
+          Submitting sends your formatted response directly to the production editor.
+        </p>
+        <div class="flex items-center gap-3 w-full sm:w-auto">
+          <button type="submit" id="submitBtn" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-6 py-3 rounded-xl shadow-md transition flex items-center justify-center gap-2">
+            <span>🚀</span> Send Feedback to Studio
+          </button>
+        </div>
+      </div>
+
+      <!-- Feedback Status Messages -->
+      <div id="statusMessage" class="hidden no-print p-4 rounded-xl text-sm font-medium"></div>
+
+    </form>
+  </div>
+
+  <script>
+    // Dynamically Add New Timestamp Row
+    function addFeedbackRow() {
+      const container = document.getElementById('feedbackRows');
+      const row = document.createElement('div');
+      row.className = 'feedback-row border border-slate-200 rounded-xl p-4 bg-white hover:border-slate-300 transition shadow-sm';
+      row.innerHTML = `
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+          <div class="sm:col-span-3">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">Time (Minute : Second)</label>
+            <input type="text" name="timestamp[]" placeholder="01:20 - 01:35" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 text-xs sm:text-sm font-mono focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none" required />
+          </div>
+          <div class="sm:col-span-4">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">What element needs change?</label>
+            <select name="category[]" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              <option value="Voice & Sound">🎙️ Voiceover / Audio volume</option>
+              <option value="Lip-Sync Matching">👄 Mouth moving out of sync</option>
+              <option value="Visual Artifacts / Glitches">👾 AI Glitch / Weird hand or face morphing</option>
+              <option value="Text & Subtitles">✍️ Spelling / Text / Logo font</option>
+              <option value="Pacing & Timing">⏱️ Too fast / Too slow / Cut earlier</option>
+              <option value="Scene Replacement">🎬 Replace visual scene completely</option>
+              <option value="Other">✨ Other question / note</option>
+            </select>
+          </div>
+          <div class="sm:col-span-4">
+            <label class="block text-xs font-semibold text-slate-600 mb-1">How critical is this?</label>
+            <select name="priority[]" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-2 py-1.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none">
+              <option value="Must Fix (Blocker)">🔴 Must Fix (Will not approve cut)</option>
+              <option value="Preferred" selected>🟡 Preferred (Looks better if changed)</option>
+              <option value="Nice to have">🟢 Optional (Only if easy to tweak)</option>
+            </select>
+          </div>
+          <div class="sm:col-span-1 flex justify-end no-print pt-4">
+            <button type="button" onclick="deleteRow(this)" title="Delete entry" class="text-slate-400 hover:text-red-500 text-lg transition p-1">
+              ✕
+            </button>
+          </div>
+          <div class="sm:col-span-12 mt-1">
+            <textarea name="description[]" rows="2" placeholder="Describe the change clearly (e.g. 'Avatar arm glitches during gesture at 01:25')." class="w-full bg-slate-50 border border-slate-300 rounded-lg p-2.5 text-xs sm:text-sm focus:bg-white focus:ring-1 focus:ring-blue-500 focus:outline-none" required></textarea>
+          </div>
+        </div>
+      `;
+      container.appendChild(row);
+    }
+
+    // Delete Feedback Row
+    function deleteRow(btn) {
+      const rows = document.querySelectorAll('.feedback-row');
+      if (rows.length > 1) {
+        btn.closest('.feedback-row').remove();
+      } else {
+        alert('You should keep at least one feedback entry!');
+      }
+    }
+
+    // Export styled PDF directly in browser
+    function exportToPDF() {
+      const element = document.getElementById('feedbackForm');
+      const opt = {
+        margin: [8, 8, 8, 8],
+        filename: 'Video_Production_Feedback.pdf',
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    // Email Submission Handler
+    async function handleSubmit(event) {
+      event.preventDefault();
+      const form = event.target;
+      const submitBtn = document.getElementById('submitBtn');
+      const status = document.getElementById('statusMessage');
+
+      // REPLACE THIS with your free Formspree, Basin, or Make/Zapier Webhook URL:
+      const ENDPOINT_URL = "https://formspree.io/f/xeaoyynk";
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = "<span>⏳</span> Submitting...";
+
+      // Gather form inputs into a clean object
+      const formData = new FormData(form);
+
+      try {
+        const response = await fetch(ENDPOINT_URL, {
+          method: "POST",
+          body: formData,
+          headers: { 'Accept': 'application/json' }
+        });
+
+        if (response.ok) {
+          status.className = "no-print p-4 rounded-xl text-sm font-medium bg-green-100 text-green-800 border border-green-200 block";
+          status.innerHTML = "✅ <strong>Feedback submitted successfully!</strong> Our editing team has received your timestamp notes and will begin revisions.";
+          form.reset();
+        } else {
+          throw new Error("Endpoint returned an error");
+        }
+      } catch (err) {
+        // Fallback for demonstration / placeholder url
+        status.className = "no-print p-4 rounded-xl text-sm font-medium bg-blue-100 text-blue-900 border border-blue-200 block";
+        status.innerHTML = `
+          ℹ️ <strong>Ready for backend connection:</strong> To send emails automatically, replace <code>YOUR_FORM_ID</code> in the script with your free Formspree or Webhook endpoint. In the meantime, you can click <strong>"Download as PDF"</strong> above to save and send this feedback directly!
+        `;
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = "<span>🚀</span> Send Feedback to Studio";
+      }
+    }
+  </script>
+</body>
+</html>
